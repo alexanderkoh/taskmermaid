@@ -13,15 +13,50 @@ export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const diagramRef = useRef<HTMLDivElement>(null)
 
-  // Handle mounting and load saved theme
+  // Load state from sessionStorage on mount
   useEffect(() => {
     setMounted(true)
-    const savedTheme = localStorage.getItem('theme')
+    
+    // Load theme
+    const savedTheme = sessionStorage.getItem('theme')
     if (savedTheme) {
       setTheme(savedTheme)
       document.documentElement.setAttribute('data-theme', savedTheme)
     }
+
+    // Load sidebar state
+    const savedSidebarState = sessionStorage.getItem('sidebarOpen')
+    if (savedSidebarState !== null) {
+      setIsSidebarOpen(savedSidebarState === 'true')
+    }
+
+    // Load task list
+    const savedTaskList = sessionStorage.getItem('taskList')
+    if (savedTaskList) {
+      setTaskList(savedTaskList)
+    }
   }, [])
+
+  // Save theme to sessionStorage when it changes
+  useEffect(() => {
+    if (mounted) {
+      sessionStorage.setItem('theme', theme)
+    }
+  }, [theme, mounted])
+
+  // Save sidebar state to sessionStorage when it changes
+  useEffect(() => {
+    if (mounted) {
+      sessionStorage.setItem('sidebarOpen', String(isSidebarOpen))
+    }
+  }, [isSidebarOpen, mounted])
+
+  // Save task list to sessionStorage when it changes
+  useEffect(() => {
+    if (mounted) {
+      sessionStorage.setItem('taskList', taskList)
+    }
+  }, [taskList, mounted])
 
   useEffect(() => {
     setMermaidCode(taskListToMermaid(taskList))
@@ -29,11 +64,9 @@ export default function Home() {
 
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme)
-    localStorage.setItem('theme', newTheme)
     document.documentElement.setAttribute('data-theme', newTheme)
   }
 
-  // Prevent rendering until mounted
   if (!mounted) {
     return null
   }

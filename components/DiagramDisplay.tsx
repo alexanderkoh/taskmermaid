@@ -48,9 +48,15 @@ const DiagramDisplay = forwardRef<HTMLDivElement, DiagramDisplayProps>(({
         // Clear previous content
         ref.current.innerHTML = `<div class="mermaid">${mermaidCode}</div>`
         
+        // Get the mermaid element
+        const mermaidElement = ref.current.querySelector('.mermaid')
+        if (!mermaidElement) {
+          throw new Error('Mermaid element not found')
+        }
+
         // Render new diagram
         await mermaid.run({
-          nodes: [ref.current.querySelector('.mermaid')]
+          nodes: [mermaidElement as HTMLElement]
         })
 
         setIsEmpty(false)
