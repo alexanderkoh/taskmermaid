@@ -37,6 +37,8 @@ const TaskWriter: React.FC<TaskWriterProps> = ({ taskList, setTaskList }) => {
   const [editingTaskText, setEditingTaskText] = useState('')
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null)
   const [dragOverItem, setDragOverItem] = useState<string | null>(null)
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
+  const [editingProjectName, setEditingProjectName] = useState('')
 
   const generateId = () => Math.random().toString(36).substr(2, 9)
 
@@ -163,8 +165,125 @@ const TaskWriter: React.FC<TaskWriterProps> = ({ taskList, setTaskList }) => {
     updateTaskList(updatedTasks)
   }
 
+  const goBackToProjects = () => {
+    setSelectedProjectId(null)
+    setSelectedTaskId(null)
+  }
+
+  const startEditingProject = (project: Project) => {
+    setEditingProjectId(project.id)
+    setEditingProjectName(project.name)
+  }
+
+  const saveEditedProject = () => {
+    if (!editingProjectId || !editingProjectName.trim()) return
+
+    const updatedProjects = projects.map(project =>
+      project.id === editingProjectId
+        ? { ...project, name: editingProjectName.trim() }
+        : project
+    )
+    
+    setProjects(updatedProjects)
+    setEditingProjectId(null)
+    setEditingProjectName('')
+    
+    // Update task list to reflect new project name
+    updateTaskList(tasks)
+  }
+
+  const deleteProject = (projectId: string) => {
+    // Delete project and all its tasks
+    setProjects(projects.filter(p => p.id !== projectId))
+    setTasks(tasks.filter(t => t.projectId !== projectId))
+    
+    if (selectedProjectId === projectId) {
+      setSelectedProjectId(null)
+      setSelectedTaskId(null)
+      setTaskList('')
+    }
+  }
+
   return (
     <div className="flex-1 overflow-auto">
+      {/* Back to Projects Button - Always at the top when in a project */}
+      {selectedProjectId && (
+        <div className="mb-4">
+          <button
+            onClick={goBackToProjects}
+            className="btn btn-sm btn-ghost gap-2 text-base-content"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            Back to Projects
+          </button>
+        </div>
+      )}
+
+      {/* Show Current Project when selected */}
+      {selectedProjectId && getCurrentProject() && (
+        <div className="mb-4">
+          <div className="p-3 rounded-lg border border-base-300">
+            <h3 className="text-sm text-base-content mb-1">Current Project:</h3>
+            {editingProjectId === selectedProjectId ? (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={editingProjectName}
+                  onChange={(e) => setEditingProjectName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      saveEditedProject()
+                    }
+                  }}
+                  className="input input-bordered input-sm flex-1"
+                  autoFocus
+                />
+                <button
+                  onClick={saveEditedProject}
+                  className="btn btn-sm btn-primary"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setEditingProjectId(null)}
+                  className="btn btn-sm btn-ghost"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <p className="text-lg font-semibold text-base-content">
+                  {getCurrentProject()?.name}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => startEditingProject(getCurrentProject()!)}
+                    className="btn btn-ghost btn-sm"
+                    title="Edit project name"
+                  >
+                    ✎
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to delete this project and all its tasks?')) {
+                        deleteProject(selectedProjectId)
+                      }
+                    }}
+                    className="btn btn-ghost btn-sm text-error"
+                    title="Delete project"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Project Creation Section */}
       {!isCreatingProject && !selectedProjectId && (
         <button
@@ -201,7 +320,7 @@ const TaskWriter: React.FC<TaskWriterProps> = ({ taskList, setTaskList }) => {
         </div>
       )}
 
-      {/* Project List */}
+      {/* Project List with Edit/Delete */}
       {projects.length > 0 && !selectedProjectId && (
         <div className="mb-4">
           <h3 className="font-semibold mb-2 text-base-content">Your Projects:</h3>
@@ -209,10 +328,65 @@ const TaskWriter: React.FC<TaskWriterProps> = ({ taskList, setTaskList }) => {
             {projects.map(project => (
               <div
                 key={project.id}
-                className="p-2 cursor-pointer rounded hover:bg-base-200 text-base-content"
-                onClick={() => setSelectedProjectId(project.id)}
+                className="flex items-center justify-between p-2 rounded hover:bg-base-200"
               >
-                {project.name}
+                {editingProjectId === project.id ? (
+                  <div className="flex gap-2 w-full">
+                    <input
+                      type="text"
+                      value={editingProjectName}
+                      onChange={(e) => setEditingProjectName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          saveEditedProject()
+                        }
+                      }}
+                      className="input input-bordered input-sm flex-1"
+                      autoFocus
+                    />
+                    <button
+                      onClick={saveEditedProject}
+                      className="btn btn-sm btn-primary"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingProjectId(null)}
+                      className="btn btn-sm btn-ghost"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <span
+                      className="flex-1 cursor-pointer text-base-content"
+                      onClick={() => setSelectedProjectId(project.id)}
+                    >
+                      {project.name}
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => startEditingProject(project)}
+                        className="btn btn-ghost btn-sm"
+                        title="Edit project name"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('Are you sure you want to delete this project and all its tasks?')) {
+                            deleteProject(project.id)
+                          }
+                        }}
+                        className="btn btn-ghost btn-sm text-error"
+                        title="Delete project"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
