@@ -6,29 +6,38 @@ export function taskListToMermaid(taskList: string): string {
   const lines = taskList.split('\n')
   let mermaidCode = 'mindmap\n'
   
-  lines.forEach((line, index) => {
-    const trimmedLine = line.trim()
-    if (!trimmedLine || !trimmedLine.startsWith('-')) return
+  // First line should be the project name (root)
+  const firstLine = lines[0]?.trim()
+  if (!firstLine?.startsWith('-')) {
+    return 'mindmap\n  root((No project selected))'
+  }
+
+  // Set project name as root
+  const projectName = firstLine.substring(1).trim()
+  mermaidCode += `  root((${projectName}))\n`
+
+  // Process tasks and subtasks, connecting them to root
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i]
+    if (!line.trim()) continue
 
     const indent = line.search(/\S/)
-    let text = trimmedLine.substring(1).trim()
-    const spaces = '  '.repeat(Math.floor(indent / 2) + 1)
+    let text = line.trim().substring(1).trim() // Remove the leading dash
 
-    // Check if text is marked as completed (wrapped in ~~)
+    // Check if task is completed
     if (text.startsWith('~~') && text.endsWith('~~')) {
-      // For completed tasks, add the strikethrough character to each character
       text = text.slice(2, -2).split('').join('\u0336') + '\u0336'
     }
 
-    // Root level (Project)
-    if (indent === 0) {
-      mermaidCode += `  root((${text}))\n`
-      return
+    // For parent tasks (indent = 2)
+    if (indent === 2) {
+      mermaidCode += `    ${text}\n`
     }
-
-    // For tasks and subtasks
-    mermaidCode += `${spaces}${text}\n`
-  })
+    // For child tasks (indent = 4)
+    else if (indent === 4) {
+      mermaidCode += `      ${text}\n`
+    }
+  }
 
   return mermaidCode
 } 

@@ -87,20 +87,10 @@ const ExportDiagram: React.FC<ExportDiagramProps> = ({ isEmpty, svgRef }) => {
     }
   }
 
-  const handleExport = () => {
-    if (isNaming) {
-      if (fileName.trim()) {
-        exportToPNG(fileName.trim())
-        setIsNaming(false)
-      }
-    } else {
-      setIsNaming(true)
-    }
-  }
-
   return (
     <div className="border-t border-base-300 pt-4 mt-4">
       <h3 className="text-base-content font-semibold mb-2">Export Options</h3>
+      
       {isNaming ? (
         <div className="flex gap-2">
           <input
@@ -141,7 +131,7 @@ const ExportDiagram: React.FC<ExportDiagramProps> = ({ isEmpty, svgRef }) => {
         </div>
       ) : (
         <button
-          onClick={handleExport}
+          onClick={() => setIsNaming(true)}
           disabled={isEmpty}
           className={`btn btn-primary btn-sm w-full ${isEmpty ? 'btn-disabled' : ''}`}
           title="Export as PNG"

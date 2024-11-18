@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, DragEvent } from 'react'
+import React, { useState, DragEvent, useEffect } from 'react'
 
 interface Task {
   id: string
@@ -39,6 +39,53 @@ const TaskWriter: React.FC<TaskWriterProps> = ({ taskList, setTaskList }) => {
   const [dragOverItem, setDragOverItem] = useState<string | null>(null)
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
   const [editingProjectName, setEditingProjectName] = useState('')
+
+  // Load data from session storage on mount
+  useEffect(() => {
+    const savedTasks = sessionStorage.getItem('tasks')
+    const savedProjects = sessionStorage.getItem('projects')
+    const savedSelectedProjectId = sessionStorage.getItem('selectedProjectId')
+    const savedSelectedTaskId = sessionStorage.getItem('selectedTaskId')
+
+    if (savedTasks) setTasks(JSON.parse(savedTasks))
+    if (savedProjects) setProjects(JSON.parse(savedProjects))
+    if (savedSelectedProjectId) setSelectedProjectId(savedSelectedProjectId)
+    if (savedSelectedTaskId) setSelectedTaskId(savedSelectedTaskId)
+  }, [])
+
+  // Save tasks to session storage whenever they change
+  useEffect(() => {
+    sessionStorage.setItem('tasks', JSON.stringify(tasks))
+  }, [tasks])
+
+  // Save projects to session storage whenever they change
+  useEffect(() => {
+    sessionStorage.setItem('projects', JSON.stringify(projects))
+  }, [projects])
+
+  // Save selected IDs to session storage
+  useEffect(() => {
+    if (selectedProjectId) {
+      sessionStorage.setItem('selectedProjectId', selectedProjectId)
+    } else {
+      sessionStorage.removeItem('selectedProjectId')
+    }
+  }, [selectedProjectId])
+
+  useEffect(() => {
+    if (selectedTaskId) {
+      sessionStorage.setItem('selectedTaskId', selectedTaskId)
+    } else {
+      sessionStorage.removeItem('selectedTaskId')
+    }
+  }, [selectedTaskId])
+
+  // Update task list whenever relevant state changes
+  useEffect(() => {
+    if (selectedProjectId) {
+      updateTaskList(tasks)
+    }
+  }, [selectedProjectId, tasks])
 
   const generateId = () => Math.random().toString(36).substr(2, 9)
 
@@ -168,6 +215,8 @@ const TaskWriter: React.FC<TaskWriterProps> = ({ taskList, setTaskList }) => {
   const goBackToProjects = () => {
     setSelectedProjectId(null)
     setSelectedTaskId(null)
+    sessionStorage.removeItem('selectedProjectId')
+    sessionStorage.removeItem('selectedTaskId')
   }
 
   const startEditingProject = (project: Project) => {
@@ -209,7 +258,6 @@ const TaskWriter: React.FC<TaskWriterProps> = ({ taskList, setTaskList }) => {
   }
 
   const deleteProject = (projectId: string) => {
-    // Delete project and all its tasks
     setProjects(projects.filter(p => p.id !== projectId))
     setTasks(tasks.filter(t => t.projectId !== projectId))
     
@@ -217,7 +265,42 @@ const TaskWriter: React.FC<TaskWriterProps> = ({ taskList, setTaskList }) => {
       setSelectedProjectId(null)
       setSelectedTaskId(null)
       setTaskList('')
+      sessionStorage.removeItem('selectedProjectId')
+      sessionStorage.removeItem('selectedTaskId')
     }
+  }
+
+  const startEditingTask = (taskId: string, currentText: string) => {
+    setEditingTaskId(taskId)
+    setEditingTaskText(currentText)
+  }
+
+  const saveEditedTask = () => {
+    if (!editingTaskId || !editingTaskText.trim()) return
+
+    const updatedTasks = tasks.map(task =>
+      task.id === editingTaskId
+        ? { ...task, text: editingTaskText.trim() }
+        : task
+    )
+    
+    setTasks(updatedTasks)
+    updateTaskList(updatedTasks)
+    setEditingTaskId(null)
+    setEditingTaskText('')
+  }
+
+  const deleteTask = (taskId: string) => {
+    // Delete the task and its subtasks
+    const updatedTasks = tasks.filter(task => 
+      task.id !== taskId && task.parentId !== taskId
+    )
+    
+    setTasks(updatedTasks)
+    if (selectedTaskId === taskId) {
+      setSelectedTaskId(null)
+    }
+    updateTaskList(updatedTasks)
   }
 
   return (
@@ -465,17 +548,62 @@ const TaskWriter: React.FC<TaskWriterProps> = ({ taskList, setTaskList }) => {
                     }`}
                     onClick={() => setSelectedTaskId(parentTask.id)}
                   >
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={parentTask.completed}
-                        onChange={() => toggleTaskCompletion(parentTask.id)}
-                        className="checkbox checkbox-sm"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <span className={parentTask.completed ? 'line-through opacity-50' : ''}>
-                        {parentTask.text}
-                      </span>
+                    <div className="flex items-center justify-between group">
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={parentTask.completed}
+                          onChange={() => toggleTaskCompletion(parentTask.id)}
+                          className="checkbox checkbox-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        {editingTaskId === parentTask.id ? (
+                          <input
+                            type="text"
+                            value={editingTaskText}
+                            onChange={(e) => setEditingTaskText(e.target.value)}
+                            onBlur={saveEditedTask}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveEditedTask()
+                              if (e.key === 'Escape') {
+                                setEditingTaskId(null)
+                                setEditingTaskText('')
+                              }
+                            }}
+                            className="input input-bordered input-sm flex-1"
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span className={parentTask.completed ? 'line-through opacity-50' : ''}>
+                            {parentTask.text}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEditingTask(parentTask.id, parentTask.text)
+                          }}
+                          className="btn btn-ghost btn-xs"
+                          title="Edit task"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (confirm('Are you sure you want to delete this task and its subtasks?')) {
+                              deleteTask(parentTask.id)
+                            }
+                          }}
+                          className="btn btn-ghost btn-xs text-error"
+                          title="Delete task"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   </div>
                   
@@ -495,17 +623,62 @@ const TaskWriter: React.FC<TaskWriterProps> = ({ taskList, setTaskList }) => {
                           }`}
                           onClick={() => setSelectedTaskId(childTask.id)}
                         >
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={childTask.completed}
-                              onChange={() => toggleTaskCompletion(childTask.id)}
-                              className="checkbox checkbox-sm"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <span className={childTask.completed ? 'line-through opacity-50' : ''}>
-                              {childTask.text}
-                            </span>
+                          <div className="flex items-center justify-between group">
+                            <div className="flex items-center gap-2 flex-1">
+                              <input
+                                type="checkbox"
+                                checked={childTask.completed}
+                                onChange={() => toggleTaskCompletion(childTask.id)}
+                                className="checkbox checkbox-sm"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              {editingTaskId === childTask.id ? (
+                                <input
+                                  type="text"
+                                  value={editingTaskText}
+                                  onChange={(e) => setEditingTaskText(e.target.value)}
+                                  onBlur={saveEditedTask}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') saveEditedTask()
+                                    if (e.key === 'Escape') {
+                                      setEditingTaskId(null)
+                                      setEditingTaskText('')
+                                    }
+                                  }}
+                                  className="input input-bordered input-sm flex-1"
+                                  autoFocus
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              ) : (
+                                <span className={childTask.completed ? 'line-through opacity-50' : ''}>
+                                  {childTask.text}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  startEditingTask(childTask.id, childTask.text)
+                                }}
+                                className="btn btn-ghost btn-xs"
+                                title="Edit task"
+                              >
+                                ✎
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (confirm('Are you sure you want to delete this task?')) {
+                                    deleteTask(childTask.id)
+                                  }
+                                }}
+                                className="btn btn-ghost btn-xs text-error"
+                                title="Delete task"
+                              >
+                                ×
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}

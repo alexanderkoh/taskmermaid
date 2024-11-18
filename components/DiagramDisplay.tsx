@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, forwardRef, useState } from 'react'
+import mermaid from 'mermaid'
 
 interface DiagramDisplayProps {
   mermaidCode: string
@@ -14,30 +15,24 @@ const DiagramDisplay = forwardRef<HTMLDivElement, DiagramDisplayProps>(({
   const [error, setError] = useState<string | null>(null)
   const [isEmpty, setIsEmpty] = useState(true)
 
-  // Simplified theme mapping based on DaisyUI themes
-  const getMermaidTheme = (theme: string) => {
-    switch (theme) {
-      case 'dark':
-      case 'halloween':
-      case 'forest':
-      case 'black':
-      case 'luxury':
-      case 'dracula':
-      case 'night':
-      case 'coffee':
-        return 'dark'
-      case 'cupcake':
-      case 'valentine':
-      case 'pastel':
-        return 'default'
-      case 'synthwave':
-      case 'cyberpunk':
-        return 'dark'
-      default:
-        return 'default'
+  // Initialize mermaid once
+  useEffect(() => {
+    try {
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: 'default',
+        securityLevel: 'loose',
+        mindmap: {
+          padding: 100,
+          useMaxWidth: false,
+        }
+      })
+    } catch (err) {
+      console.error('Mermaid initialization error:', err)
     }
-  }
+  }, [])
 
+  // Render diagram whenever code changes
   useEffect(() => {
     const renderDiagram = async () => {
       if (!ref || !('current' in ref) || !ref.current) return
@@ -50,30 +45,23 @@ const DiagramDisplay = forwardRef<HTMLDivElement, DiagramDisplayProps>(({
       }
 
       try {
-        const { default: mermaid } = await import('mermaid')
+        // Clear previous content
+        ref.current.innerHTML = `<div class="mermaid">${mermaidCode}</div>`
         
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: getMermaidTheme(currentTheme),
-          securityLevel: 'loose',
-          mindmap: {
-            padding: 20,
-            useMaxWidth: true,
-          }
+        // Render new diagram
+        await mermaid.run({
+          nodes: [ref.current.querySelector('.mermaid')]
         })
 
-        const { svg } = await mermaid.render('mermaid-diagram', mermaidCode)
-        
-        if (ref.current) {
-          ref.current.innerHTML = svg
-          setError(null)
-          setIsEmpty(false)
+        setIsEmpty(false)
+        setError(null)
 
-          // Apply basic theme-specific background
-          const svgElement = ref.current.querySelector('svg')
-          if (svgElement) {
-            svgElement.style.background = 'transparent'
-          }
+        // Store the mermaid code for export
+        const svgElement = ref.current.querySelector('svg')
+        if (svgElement) {
+          svgElement.setAttribute('data-processed', mermaidCode)
+          svgElement.style.maxWidth = '100%'
+          svgElement.style.height = 'auto'
         }
       } catch (err) {
         console.error('Failed to render diagram:', err)
@@ -82,7 +70,7 @@ const DiagramDisplay = forwardRef<HTMLDivElement, DiagramDisplayProps>(({
     }
 
     renderDiagram()
-  }, [mermaidCode, currentTheme, ref])
+  }, [mermaidCode, ref])
 
   return (
     <div className="flex-1 p-4 lg:p-8 overflow-auto bg-base-100 min-h-screen">
