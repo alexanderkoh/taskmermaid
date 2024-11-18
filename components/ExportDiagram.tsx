@@ -1,12 +1,17 @@
 'use client'
 
+import { useState } from 'react'
+
 interface ExportDiagramProps {
   isEmpty: boolean
   svgRef: React.RefObject<HTMLDivElement>
 }
 
 const ExportDiagram: React.FC<ExportDiagramProps> = ({ isEmpty, svgRef }) => {
-  const exportToPNG = async () => {
+  const [fileName, setFileName] = useState('mindmap')
+  const [isNaming, setIsNaming] = useState(false)
+
+  const exportToPNG = async (customFileName: string) => {
     if (!svgRef.current) return
 
     try {
@@ -69,7 +74,7 @@ const ExportDiagram: React.FC<ExportDiagramProps> = ({ isEmpty, svgRef }) => {
         const pngUrl = canvas.toDataURL('image/png', 1.0)
         const downloadLink = document.createElement('a')
         downloadLink.href = pngUrl
-        downloadLink.download = 'mindmap.png'
+        downloadLink.download = `${customFileName}.png`
         document.body.appendChild(downloadLink)
         downloadLink.click()
         document.body.removeChild(downloadLink)
@@ -82,17 +87,68 @@ const ExportDiagram: React.FC<ExportDiagramProps> = ({ isEmpty, svgRef }) => {
     }
   }
 
+  const handleExport = () => {
+    if (isNaming) {
+      if (fileName.trim()) {
+        exportToPNG(fileName.trim())
+        setIsNaming(false)
+      }
+    } else {
+      setIsNaming(true)
+    }
+  }
+
   return (
     <div className="border-t border-base-300 pt-4 mt-4">
       <h3 className="text-base-content font-semibold mb-2">Export Options</h3>
-      <button
-        onClick={exportToPNG}
-        disabled={isEmpty}
-        className={`btn btn-primary btn-sm w-full ${isEmpty ? 'btn-disabled' : ''}`}
-        title="Export as PNG"
-      >
-        Export as PNG (1920×1080)
-      </button>
+      {isNaming ? (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={fileName}
+            onChange={(e) => setFileName(e.target.value)}
+            placeholder="Enter file name"
+            className="input input-bordered input-sm flex-1"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && fileName.trim()) {
+                exportToPNG(fileName.trim())
+                setIsNaming(false)
+              } else if (e.key === 'Escape') {
+                setIsNaming(false)
+              }
+            }}
+          />
+          <button
+            onClick={() => setIsNaming(false)}
+            className="btn btn-ghost btn-sm"
+            title="Cancel"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              if (fileName.trim()) {
+                exportToPNG(fileName.trim())
+                setIsNaming(false)
+              }
+            }}
+            className="btn btn-primary btn-sm"
+            disabled={!fileName.trim()}
+          >
+            Export
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={handleExport}
+          disabled={isEmpty}
+          className={`btn btn-primary btn-sm w-full ${isEmpty ? 'btn-disabled' : ''}`}
+          title="Export as PNG"
+        >
+          Export as PNG (1920×1080)
+        </button>
+      )}
     </div>
   )
 }

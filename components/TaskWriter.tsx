@@ -188,8 +188,24 @@ const TaskWriter: React.FC<TaskWriterProps> = ({ taskList, setTaskList }) => {
     setEditingProjectId(null)
     setEditingProjectName('')
     
-    // Update task list to reflect new project name
-    updateTaskList(tasks)
+    // If we're editing the currently selected project, update the task list immediately
+    if (editingProjectId === selectedProjectId) {
+      const currentTasks = tasks.filter(task => task.projectId === selectedProjectId)
+      let formattedList = `- ${editingProjectName.trim()}\n`
+      
+      // Add parent tasks
+      currentTasks.filter(task => !task.parentId).forEach(task => {
+        const taskText = task.completed ? `~~${task.text}~~` : task.text
+        formattedList += `  - ${taskText}\n`
+        // Add child tasks
+        currentTasks.filter(subtask => subtask.parentId === task.id).forEach(subtask => {
+          const subtaskText = subtask.completed ? `~~${subtask.text}~~` : subtask.text
+          formattedList += `    - ${subtaskText}\n`
+        })
+      })
+      
+      setTaskList(formattedList)
+    }
   }
 
   const deleteProject = (projectId: string) => {
